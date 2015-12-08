@@ -70,11 +70,15 @@ interface IOverrideContext {
         Item: Function,
         Footer: Function
     };
+	OnPreRender: Function,
+	OnPostRender: Function,
     BaseViewID: number;
     ListTemplateType: number;
 }
 interface IBaseRenderer {
     overrideCtx: IOverrideContext;
+	onPreRender();
+	onPostRender();
 	itemHtml(ctx?: ContextInfo): string;
 	headerHtml(ctx?: ContextInfo): string;
     footerHtml(ctx?: ContextInfo): string;
@@ -83,14 +87,20 @@ interface IBaseRenderer {
 class BaseRenderer implements IBaseRenderer {
 	listTemplateType: ListTemplateType;
 	baseViewID: number;
+	listTitle: string;
 	overrideCtx: IOverrideContext;
 	listClassNames: Array<string>;
 
-	constructor(listTemplateType: ListTemplateType, baseViewId: number) {
+	constructor(listTemplateType: ListTemplateType, baseViewId: number, listTitle?: string) {
 		this.listTemplateType = listTemplateType;
 		this.baseViewID = baseViewId;
+		this.listTitle = listTitle || null;
+		if(this.listTitle) {			
+        	ChangeBaseViewIdOfList(this.listTitle, this.baseViewID);
+		}
 	}
-
+	onPreRender() { }
+	onPostRender() { }
 	itemHtml(ctx?: ContextInfo) { return ""; }
 	headerHtml(ctx?: ContextInfo) { return ""; }
 	footerHtml(ctx?: ContextInfo) { return ""; }
@@ -101,9 +111,22 @@ class BaseRenderer implements IBaseRenderer {
 				Header: this.headerHtml,
 				Footer: this.footerHtml
 			},
-			BaseViewID: 1,
+			OnPreRender: this.onPreRender,
+			OnPostRender: this.onPostRender,
+			BaseViewID: this.baseViewID,
 			ListTemplateType: this.listTemplateType
 		};
 		SPClientTemplates.TemplateManager.RegisterTemplateOverrides(this.overrideCtx);
 	}
+}
+var ChangeBaseViewIdOfList = function(listTitle, baseViewId) {
+	ExecuteOrDelayUntilScriptLoaded(() => {
+                this.oldRenderListView = RenderListView;                
+                RenderListView = function(ctx, webPartID) {
+                        if (ctx.ListTitle === listTitle) {
+                                ctx.BaseViewID = baseViewId;
+                        }
+                        this.oldRenderListView(ctx, webPartID);
+                }        
+        }, "ClientTemplates.js");
 }
